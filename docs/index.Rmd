@@ -1,0 +1,227 @@
+---
+title: "Untitled"
+output: html_document
+date: "2024-03-23"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+三种生物Guppy、Hen、Cow的生长情况（即体重随着时间的变化）
+
+a、b、c图：原始数据+两组拟合数据
+拟合曲线1（α = 3/4）：
+(m/M)^(1/4) = 1-[1-(m0/M)^(1/4)]*exp(-a*t/4/M^(1/4))
+两个变量：a和M，需要对这两个变量进行拟合，同时不同的生物具有不同的m0（出生时的质量）
+拟合曲线2（α = 2/3）：
+(m/M)^(1/3) = 1-[1-(m0/M)^(1/3)]*exp(-γ*t)
+γ = a(1-α)/M^(1-α);
+同时文献强调γ2/3 = γ3/4，所以曲线2的M变量来自拟合曲线1，用γ3/4代替γ2/3，即不用拟合，利用拟合曲线1的数据
+
+d图：
+r = 1-exp(-T)
+r = (m/M)^1-α, T = -ln[1-[1-(m0/M)^(1-α)]*exp(-γ*t)]
+该指数函数能很好的拟合每种生物的两种拟合数据（α=3/4或者2/3）
+
+思路：分别画出a、b、c、d图，最后拼起来
+
+```{r}
+library(tidyverse)
+library(scales)
+shuju <- read.csv(file.choose())#选择“shuju0317.csv”文件
+a <- c(0.1, 0.47, 0.28)
+m0 <- c(0.008, 43, 33300)
+M <- c(0.15, 2100, 442000)
+```
+
+##图b Guppy
+```{r}
+d_1 <- filter(shuju, number == "1") #Guppy
+# 拟合线1:  α = 3/4
+fit_1 <- nls(Mass ~ M*(1 - (1 - (m0[1] / M)^0.25) * exp(- a* Time* 0.25 / M^0.25))^4, 
+    data = d_1,
+    start = list(a = 0.10, M = 0.15)
+    )#注意不同的生物有不同的初始值，且要注意单位
+summary(fit_1)
+names(summary(fit_1))
+summary(fit_1)$coefficients
+a_1 <- summary(fit_1)$coefficients[1]
+M_1 <- summary(fit_1)$coefficients[2]
+
+x_b_1 <- c(d_1$Time) 
+y_b_1 <- M_1*(1 - (1 - (m0[1] / M_1)^0.25) * exp(- a_1* x_b_1* 0.25 / M_1^0.25))^4 
+fit_b_1 <- data.frame(Time = x_b_1, Mass = y_b_1) 
+
+# 拟合线2:  α = 2/3
+gama <- a_1/4/(M_1)^0.25
+x_b_2 <- c(d_1$Time) 
+y_b_2 <- M_1*(1 - (1 - (m0[1] / M_1)^(1/3)) * exp(-gama * x_b_2))^3
+fit_b_2 <- data.frame(Time = x_b_2, Mass = y_b_2) 
+             
+p_b <- ggplot(d_1, aes(Time, Mass))+
+  theme_bw()+
+  theme(panel.grid = element_blank(), #删除背景的网格线
+        axis.ticks.length = unit(-0.1,"cm"))+ #刻度线调整
+  geom_point(color = "green")+
+  geom_point(data = fit_b_1, color= "blue")+
+  geom_line(data = fit_b_1, lty=5, color= "blue")+
+  geom_point(data = fit_b_2, color= "red")+
+  geom_line(data = fit_b_2, lty=2, color= "red")+
+  labs(title= "Guppy", x = "Time(days)", y = "Mass(g)")+
+  theme(plot.title = element_text(
+    size = 12,  #字体大小
+    hjust = 0.5, #字体左右的位置
+    vjust = 0.5  #字体上下的高度
+    ))+
+  scale_x_continuous(limits = c(0, 90),breaks = seq(0,90,10))+
+  scale_y_continuous(limits = c(0, 0.16),breaks = seq(0,0.16,0.02))
+p_b
+```
+
+##图c Hen
+```{r}
+d_2 <- filter(shuju, number == "2") #Hen
+# 拟合线1:  α = 3/4
+fit_2 <- nls(Mass ~ M*(1 - (1 - (m0[2] / M)^0.25) * exp(- a* Time* 0.25 / M^0.25))^4, 
+    data = d_2,
+    start = list(a = 0.47, M = 2100))
+
+summary(fit_2)
+names(summary(fit_2))
+summary(fit_2)$coefficients
+a_2 <- summary(fit_2)$coefficients[1]
+M_2 <- summary(fit_2)$coefficients[2]
+
+x_c_1 <- c(d_2$Time) 
+y_c_1 <- M_2*(1 - (1 - (m0[2] / M_2)^0.25) * exp(- a_2* x_c_1* 0.25 / M_2^0.25))^4 
+fit_c_1 <- data.frame(Time = x_c_1, Mass = y_c_1) 
+
+# 拟合线2:  α = 2/3
+gama2 <- a_2/4/(M_2)^0.25
+x_c_2 <- c(d_2$Time) 
+y_c_2 <- M_2*(1 - (1 - (m0[2] / M_2)^(1/3)) * exp(-gama2 * x_c_2))^3
+fit_c_2 <- data.frame(Time = x_c_2, Mass = y_c_2) 
+             
+p_c <- ggplot(d_2, aes(Time, Mass))+
+  theme_bw()+
+  theme(panel.grid = element_blank(),
+        axis.ticks.length = unit(-0.1,"cm"))+
+  geom_point(color = "green")+
+  geom_point(data = fit_c_1, color= "blue")+
+  geom_line(data = fit_c_1, lty=5, color= "blue")+
+  geom_point(data = fit_c_2, color= "red")+
+  geom_line(data = fit_c_2, lty=2, color= "red")+
+  labs(title= "Hen", x = "Time(days)", y = "Mass(g)")+
+  theme(plot.title = element_text(
+    size = 12, hjust = 0.5, vjust = 0.5))+
+  scale_x_continuous(limits = c(0, 400),breaks = seq(0,400,50))+
+  scale_y_continuous(limits = c(0, 2500),breaks = seq(0,2500,500))
+p_c
+
+```
+
+##图a Cow
+```{r}
+d_3 <- filter(shuju, number == "3") #Cow
+d_4 <- data.frame(d_3$number, d_3$Time, d_3$Mass/1000)
+colnames(d_4) <- c("number", "Time", "Mass")
+
+# 拟合线1:  α = 3/4
+fit_3 <- nls(Mass ~ M*(1 - (1 - (m0[3] / M)^0.25) * exp(- a* Time* 0.25 / M^0.25))^4, 
+    data = d_3,
+    start = list(a = 0.28, M = 442000))
+
+summary(fit_3)
+names(summary(fit_3))
+summary(fit_3)$coefficients
+a_3 <- summary(fit_3)$coefficients[1]
+M_3 <- summary(fit_3)$coefficients[2]
+
+
+x_a_1 <- c(d_3$Time) 
+y_a_1 <- M_3*(1 - (1 - (m0[3] / M_3)^0.25) * exp(- a_3* x_a_1* 0.25 / M_3^0.25))^4 
+fit_a_1 <- data.frame(Time = x_a_1, Mass = y_a_1/1000) 
+
+# 拟合线2:  α = 2/3
+gama3 <- a_3/4/(M_3)^0.25
+x_a_2 <- c(d_3$Time) 
+y_a_2 <- M_3*(1 - (1 - (m0[3] / M_3)^(1/3)) * exp(-gama3 * x_a_2))^3
+fit_a_2 <- data.frame(Time = x_a_2, Mass = y_a_2/1000) 
+             
+
+p_a <- ggplot(d_4, aes(Time, Mass))+
+  theme_bw()+
+  theme(panel.grid = element_blank(), 
+        axis.ticks.length = unit(-0.1,"cm"))+
+  geom_point(color = "green")+
+  geom_point(data = fit_a_1, color= "blue")+
+  geom_line(data = fit_a_1, lty=5, color= "blue")+
+  geom_point(data = fit_a_2, color= "red")+
+  geom_line(data = fit_a_2, lty=2, color= "red")+
+  labs(title= "Cow", x = "Time(days)", y= expression("Mass ("*g*"×10"^3*")"))+
+  theme(plot.title = element_text(
+    size = 12,  hjust = 0.5, vjust = 0.5))+
+  scale_x_continuous(limits = c(0, 2500), breaks = seq(0,2500,500),labels = label_number(scale = 1/1000))+ #y坐标调整
+  scale_y_continuous(limits = c(0, 450), breaks = seq(0,450,50) )
+p_a
+```
+
+
+##图d
+```{r}
+#α = 3/4
+r1 <- (d_1$Mass/M[1])^0.25
+T1 <- -log((1-(m0[1]/M[1])^0.25)*exp(-a[1]*0.25*d_1$Time/M[1]^0.25))
+D1 <- data.frame(r1, T1)
+
+r2 <- (d_2$Mass/M[2])^0.25
+T2 <- -log((1-(m0[2]/M[2])^0.25)*exp(-a[2]*0.25* d_2$Time / M[2]^0.25))
+D2 <- data.frame(r2, T2)
+
+r3 <- (d_3$Mass / M[3])^0.25
+T3 <- -log((1-(m0[3]/M[3])^0.25)*exp(-a[3]*0.25* d_3$Time /M[3]^0.25))
+D3 <- data.frame(r3, T3)
+
+#α = 2/3
+r1_1 <- (d_1$Mass/M[1])^(1/3)
+T1_1 <- -log((1-(m0[1]/M[1])^(1/3))*exp(-a[1]*0.25*d_1$Time/M[1]^0.25))
+D1_1 <- data.frame(r1, T1)
+
+r2_1 <- (d_2$Mass/M[2])^(1/3)
+T2_1 <- -log((1-(m0[2]/M[2])^(1/3))*exp(-a[2]*0.25* d_2$Time / M[2]^0.25))
+D2_1 <- data.frame(r2_1, T2_1)
+
+r3_1 <- (d_3$Mass / M[3])^(1/3)
+T3_1 <- -log((1-(m0[3]/M[3])^(1/3))*exp(-a[3]*0.25* d_3$Time /M[3]^0.25))
+D3_1 <- data.frame(r3_1, T3_1)
+
+r <- 0:8
+T <- 1 - exp(-r)
+equation2 <- data.frame(r, T)
+
+p_d <- ggplot(equation2, aes(r, T))+
+  theme_bw()+
+  theme(panel.grid = element_blank(), 
+        axis.ticks.length = unit(-0.1,"cm"))+ 
+  geom_line(lty = 3)+
+  geom_point(data = D1, x = T1, y = r1, color = "red")+
+  geom_point(data = D2, x = T2, y = r2, color = "blue")+
+  geom_point(data = D3, x = T3, y = r3, color = "green")+
+  geom_point(data = D1_1, x = T1_1, y = r1_1, color = "red")+
+  geom_point(data = D2_1, x = T2_1, y = r2_1, color = "blue")+
+  geom_point(data = D3_1, x = T3_1, y = r3_1, color = "green")+
+  labs(title= "Scaling collapse", x = "Dimensionless mass ratio", y = "Dimensionless time")+
+  theme(plot.title = element_text(
+    size = 12,  hjust = 0.5, vjust = 0.5))+
+  scale_x_continuous(limits = c(0, 8),breaks = seq(0,8,1))+
+  scale_y_continuous(limits = c(0, 1.2),breaks = seq(0,1.2,0.2))
+p_d
+```
+
+
+##拼图
+```{r}
+library(cowplot)
+plot_grid(p_a, p_b, p_c, p_d, labels = c("a", "b", "c", "d"))
+```
+
